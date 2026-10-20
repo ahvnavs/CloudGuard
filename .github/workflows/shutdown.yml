@@ -1,0 +1,75 @@
+name: Optional idle-instance shutdown
+
+on:
+  schedule:
+    - cron: '0 17 * * *' # Nightly at 22:30 IST (GitHub schedules can be delayed).
+  workflow_dispatch:
+    inputs:
+      execute:
+        description: Stop eligible instances (manual runs otherwise always dry run)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  availability:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    outputs:
+      run_aws: ${{ steps.gate.outputs.run_aws }}
+    steps:
+      - name: Explain optional AWS availability
+        id: gate
+        env:
+          AWS_ENABLED: ${{ vars.CLOUDGUARD_AWS_ENABLED }}
+          SHUTDOWN_ROLE: ${{ vars.AWS_SHUTDOWN_ROLE_ARN }}
+          DEPLOYED_INPUTS: ${{ secrets.CLOUDGUARD_TFVARS_JSON }}
+        run: |
+          run_aws=false
+          configuration_error=false
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            reason='Shutdown skipped: select the deployed main branch.'
+          elif [ "$AWS_ENABLED" != "true" ]; then
+            reason='Shutdown skipped: set CLOUDGUARD_AWS_ENABLED=true after AWS setup.'
+          elif [ -z "$SHUTDOWN_ROLE" ] || [ -z "$DEPLOYED_INPUTS" ]; then
+            configuration_error=true
+            reason='Shutdown configuration error: configure AWS_SHUTDOWN_ROLE_ARN and CLOUDGUARD_TFVARS_JSON, or disable CLOUDGUARD_AWS_ENABLED.'
+          else
+            run_aws=true
+            reason='Shutdown enabled: scheduled stops require CLOUDGUARD_STOP_ENABLED=true; manual stops require the execute input.'
+          fi
+          printf 'run_aws=%s\n' "$run_aws" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$reason"
+          printf '%s\n' "$reason" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$configuration_error" = true ]; then exit 1; fi
+
+  shutdown:
+    needs: availability
+    if: needs.availability.outputs.run_aws == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12.12'
+      - name: Install pinned AWS SDK
+        run: python -m pip install --requirement requirements.txt
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        with:
+          role-to-assume: ${{ vars.AWS_SHUTDOWN_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'ap-south-1' }}
+          mask-aws-account-id: true
+      - name: Evaluate opted-in instances using deployed tags
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+          CLOUDGUARD_TFVARS_JSON: ${{ secrets.CLOUDGUARD_TFVARS_JSON }}
+          CLOUDGUARD_EXECUTE: ${{ (github.event_name == 'schedule' && vars.CLOUDGUARD_STOP_ENABLED == 'true') || (github.event_name == 'workflow_dispatch' && inputs.execute == true) }}
+        run: python scripts/terraform_live.py shutdown

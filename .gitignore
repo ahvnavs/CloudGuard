@@ -1,0 +1,35 @@
+# Terraform working data, local credentials/configuration, and sensitive artifacts.
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.plan
+crash.log
+crash.*.log
+*.tfvars
+!.checkov.tfvars
+*.tfvars.json
+backend.hcl
+*.tfbackend
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+**/.cloudguard-live-*/
+
+# Python tools and caches.
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.checkov.baseline
+.external_modules/
+
+# Local editor and OS files.
+.DS_Store
+.idea/
+.vscode/
+.env
+.env.*

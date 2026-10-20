@@ -1,0 +1,27 @@
+# A deliberately small, documented baseline; this is not a complete AWS audit.
+framework:
+  - terraform
+# Scan the optional EC2 branch even though deployment defaults to no instance.
+var-file:
+  - .checkov.tfvars
+check:
+  - CKV_AWS_8       # EC2 root volumes are encrypted.
+  - CKV_AWS_21      # State bucket versioning.
+  - CKV_AWS_24      # No public SSH.
+  - CKV_AWS_25      # No public RDP.
+  - CKV_AWS_53      # S3 blocks public ACLs.
+  - CKV_AWS_54      # S3 blocks public bucket policies.
+  - CKV_AWS_55      # S3 ignores public ACLs.
+  - CKV_AWS_56      # S3 restricts public buckets.
+  - CKV_AWS_79      # EC2 requires IMDSv2.
+  - CKV_AWS_88      # EC2 has no public IP address.
+  - CKV_AWS_130     # Subnets do not assign public IPs.
+  - CKV_AWS_290     # No IAM write access without resource constraints.
+  - CKV2_AWS_12     # Default VPC security group denies traffic.
+skip-path:
+  - tests/fixtures/
+  - .terraform/
+  - .venv/
+quiet: true
+compact: true
+skip-download: true

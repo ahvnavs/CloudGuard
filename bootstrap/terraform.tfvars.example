@@ -1,0 +1,6 @@
+aws_region        = "ap-south-1"
+state_bucket_name = "replace-with-globally-unique-cloudguard-state-bucket"
+github_repository = "ahvnavs/CloudGuard"
+
+# If this account already trusts GitHub Actions, reuse its provider:
+# existing_oidc_provider_arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"

@@ -1,0 +1,2 @@
+# Checkov pins this same SDK version; share one compatible development environment.
+boto3==1.35.49
